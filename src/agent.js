@@ -22,6 +22,19 @@ Prinsip Kerja:
 4. Jelaskan apa yang telah kamu kerjakan secara ringkas dan jelas setelah mengeksekusi aksi.`;
 }
 
+function sanitizeMessages(msgs) {
+  // Truncate overly long tool contents to avoid exceeding gateway payload/token limits
+  return msgs.map(m => {
+    if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > 12000) {
+      return {
+        ...m,
+        content: m.content.slice(0, 12000) + '\n... [Konten dipotong untuk menghemat context window & payload limit]'
+      };
+    }
+    return m;
+  });
+}
+
 export async function startAgent(options = {}) {
   // 1. Ensure API Key is configured and verified
   const config = await ensureApiKey();
@@ -210,11 +223,13 @@ export async function startAgent(options = {}) {
       loopCount++;
 
       try {
+        const sanitized = sanitizeMessages(messages);
         const response = await client.chat.completions.create({
           model: config.model,
-          messages: messages,
+          messages: sanitized,
           tools: toolDefinitions,
-          tool_choice: 'auto'
+          tool_choice: 'auto',
+          ...{ rag_enabled: false }
         });
 
         const choice = response.choices?.[0];

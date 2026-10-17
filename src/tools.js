@@ -166,17 +166,57 @@ export async function executeTool(name, args, cwd = process.cwd()) {
         if (stat.isDirectory()) {
           return { error: `Path adalah direktori, bukan file: ${args.file_path}` };
         }
-        const content = fs.readFileSync(fullPath, 'utf-8');
+
+        // 1. Detect binary / weight / archive files
+        const ext = path.extname(fullPath).toLowerCase();
+        const binaryExts = ['.pt', '.pth', '.bin', '.rar', '.zip', '.tar', '.gz', '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.exe', '.dll', '.so', '.dylib', '.onnx', '.weights'];
+        if (binaryExts.includes(ext)) {
+          return {
+            file: args.file_path,
+            is_binary: true,
+            size_mb: (stat.size / (1024 * 1024)).toFixed(2),
+            message: `File ini adalah binary model/archive/media (${ext}, ukuran ${(stat.size / (1024 * 1024)).toFixed(2)} MB). File binary tidak dapat dibaca sebagai teks.`
+          };
+        }
+
+        let content = '';
+
+        // 2. Intelligent handling for Jupyter Notebooks (.ipynb)
+        if (ext === '.ipynb') {
+          try {
+            const rawJson = fs.readFileSync(fullPath, 'utf-8');
+            const nb = JSON.parse(rawJson);
+            const cells = [];
+            for (const [idx, cell] of (nb.cells || []).entries()) {
+              const src = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+              cells.push(`### Cell ${idx + 1} (${cell.cell_type})\n${src}`);
+            }
+            content = cells.join('\n\n');
+          } catch (e) {
+            content = fs.readFileSync(fullPath, 'utf-8');
+          }
+        } else {
+          content = fs.readFileSync(fullPath, 'utf-8');
+        }
+
         const lines = content.split('\n');
         
         let start = (args.start_line && args.start_line > 0) ? args.start_line - 1 : 0;
         let end = (args.end_line && args.end_line <= lines.length) ? args.end_line : lines.length;
         
+        // Auto-cap to 350 lines max per read to keep LLM context healthy
+        let truncated = false;
+        if (!args.end_line && (end - start) > 350) {
+          end = start + 350;
+          truncated = true;
+        }
+
         const selectedLines = lines.slice(start, end).map((line, idx) => `${start + idx + 1}: ${line}`).join('\n');
         return {
           file: args.file_path,
           total_lines: lines.length,
           displayed_lines: `${start + 1}-${end}`,
+          truncated: truncated ? `File dipotong pada 350 baris pertama. Gunakan parameter 'start_line' jika ingin membaca baris selanjutnya.` : undefined,
           content: selectedLines
         };
       }

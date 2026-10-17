@@ -1,0 +1,34 @@
+{
+  "name": "pnl-agent",
+  "version": "1.0.0",
+  "description": "PNL Agent - Autonomous Terminal AI Coding Assistant powered by Way (Gutech AI)",
+  "main": "bin/pnl.js",
+  "type": "module",
+  "bin": {
+    "pnl": "./bin/pnl.js",
+    "pnl-agent": "./bin/pnl.js"
+  },
+  "scripts": {
+    "start": "node bin/pnl.js agent"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mhmmd-aziz/PNL-AGENT.git"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "coding",
+    "claude-code",
+    "codex",
+    "gutech",
+    "way",
+    "terminal",
+    "autonomous"
+  ],
+  "author": "Muhammad Aziz",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^7.36.0"
+  }
+}
